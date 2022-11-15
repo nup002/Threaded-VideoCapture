@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "threaded-videocapture"
+version = "0.0.0"
+authors = [
+  { name="Magne Eik Lauritzen", email="mag.lauritzen@gmail.com" },
+]
+description = "OpenCV VideoCapture in a background thread"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+]
+
+[project.urls]
+"Homepage" = "https://github.com/nup002/threaded-VideoCapture"
+"Bug Tracker" = ""
