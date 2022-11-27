@@ -39,10 +39,11 @@ def queue_put(q: Union[queue.Queue, queue.LifoQueue], data: Any) -> None:
 class VideoCaptureThread(threading.Thread):
     def __init__(self, name: str = None, args: Tuple = (), kwargs: Dict[str, Any] = None,
                  *, daemon: bool = None):
+
         super().__init__(target=self.reader, name=name, args=args, kwargs=kwargs, daemon=daemon)
 
     def reader(self, capture: cv2.VideoCapture, frame_queue: queue.Queue, out_queue: queue.Queue,
-               in_queue: queue.Queue, timeout: float, poll_rate: Optional[float]) -> None:
+               in_queue: queue.Queue, timeout: float, poll_rate: Optional[float], logger: logging.Logger) -> None:
         try:
             poll_period_deque: Deque[float] = deque()
             frame_period_deque: Deque[float] = deque()
@@ -71,21 +72,21 @@ class VideoCaptureThread(threading.Thread):
                                         timeout = inf
                                         infostr += " VideoCaptureThread will never timeout and must be stopped with " \
                                                    "a QUIT signal."
-                                    logging.info(infostr)
+                                    logger.info(infostr)
                                 elif in_data[0] == InputVariables.POLLRATE:
                                     poll_rate = in_data[1]
                                     if poll_rate is None:
                                         poll_period = -inf
-                                        logging.info(f"Poll rate set to unlimited.")
+                                        logger.info(f"Poll rate set to unlimited.")
                                     elif in_data[1] <= 0:
-                                        logging.warning(
+                                        logger.warning(
                                             f"Attempted to set poll rate less or equal to 0: {in_data[1]}. Poll "
                                             f"rate remains unchanged at {1 / poll_period}")
                                     else:
                                         poll_period = 1 / in_data[1]
-                                        logging.info(f"Poll rate set to {in_data[1]} Hz")
+                                        logger.info(f"Poll rate set to {in_data[1]} Hz")
                                 if in_data[0] == InputVariables.QUIT:
-                                    logging.info(f"Received QUIT signal.")
+                                    logger.info(f"Received QUIT signal.")
                                     quitflag = True
                                     break
                             except queue.Empty:
@@ -123,7 +124,7 @@ class VideoCaptureThread(threading.Thread):
                                               OutputVariables.FPS: mean_fps})
                         last_emit_timestamp = prev_read_timestamp
                 if time_since_frame >= timeout:
-                    logging.info(f"VideoCaptureThread timed out after {timeout} seconds of no frames.")
+                    logger.info(f"VideoCaptureThread timed out after {timeout} seconds of no frames.")
         finally:
             queue_put(frame_queue, (None, None))
 
@@ -152,22 +153,25 @@ class ThreadedVideoCapture:
     ensure to call release() when you are done with it.
     """
 
-    def __init__(self, *args: Any, timeout: float = 1, poll_rate: Optional[float] = 100, frame_queue_size: int = 1,
-                 **kwargs: Any) -> None:
+    def __init__(self, *args: Any, timeout: float = 1, poll_rate: Optional[float] = None, frame_queue_size: int = 1,
+                 logger: logging.Logger = None, **kwargs: Any) -> None:
         """
 
         Parameters
         ----------
         args             : Positional arguments to cv2.VideoCapture
         timeout          : Threaded reader timeout. If no new frames are received within 'timeout' seconds, the thread
-            quits. Default is 1 second.
+            quits. Default is 1 second. Set it to 0 or a negative number to never time out.
         poll_rate        : Threaded reader polling rate. The fastest rate (in calls per second) to capture.grab(). Set
-            this at least as high as your expected frame rate, preferably twice as large for headroom. Default 100.
-            Set it to None for unlimited poll rate.
+            this at least as high as your expected frame rate, preferably twice as large for headroom. Default None,
+            which means unlimited poll rate.
         frame_queue_size : The length of the queue that holds frames fetched by the threaded reader. If the threaded
             reader has grabbed a new frame and the queue is full, the oldest element is removed to make room. Default 1.
-        kwargs
+        logger           : Custom logger. If not provided, ThreadedVideoCapture will create its own logger which can be
+            accessed with ThreadedVideoCapture.logger.
+        kwargs           : Keyword arguments to cv2.VideoCapture
         """
+        self.logger = logger if logger is not None else logging.getLogger("ThreadedVideoCapture")
         self._capture = cv2.VideoCapture()
         self._frame_queue: queue.Queue[Tuple[Optional[bool], Optional[np.ndarray]]] = queue.Queue(maxsize=frame_queue_size)
         self._output_queue: queue.Queue[Dict[OutputVariables, Any]] = queue.Queue(maxsize=1)
@@ -218,7 +222,8 @@ class ThreadedVideoCapture:
                                                             self._output_queue,
                                                             self._input_queue,
                                                             self._timeout,
-                                                            self._poll_rate), daemon=True)
+                                                            self._poll_rate,
+                                                            self.logger), daemon=True)
             self.threaded_reader.start()
         return success
 
@@ -283,8 +288,7 @@ class ThreadedVideoCapture:
     def timeout(self, timeout: float) -> None:
         """
         Set the reader thread timeout. If no new frames have been received from the source (camera, file, stream,
-        etc), the reader thread will quit.
-
+        etc), the reader thread will quit. Set it to 0 or a negative number to never time out.
         Parameters
         ----------
         timeout : Timeout value in seconds.
