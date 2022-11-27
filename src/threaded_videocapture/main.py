@@ -49,7 +49,7 @@ class VideoCaptureThread(threading.Thread):
             frame_period_deque: Deque[float] = deque()
             if capture.isOpened():
                 quitflag = False
-                poll_period: Optional[float] = 1 / poll_rate if poll_rate else None
+                poll_period: Optional[float] = 1 / poll_rate if poll_rate else 0
                 time_since_frame = 0.
                 last_emit_timestamp = 0.
                 last_settings_poll_timestamp = 0.
