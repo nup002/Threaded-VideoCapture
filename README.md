@@ -18,10 +18,11 @@ from threadedvideocapture import ThreadedVideoCapture
 with ThreadedVideoCapture(0) as tvc:  # Open webcam stream
     while True:
         ret, frame = tvc.read()
-        if ret is None:  # ret is only None if tvc has stopped.
+        if ret:  # ret is True if a frame was obtained with tvc.read()
+            cv.imshow('frame', frame) 
+        if ret is None:  # ret is None if tvc has stopped.
             print("End of stream.")
             break
-        cv.imshow('frame', frame)
         if cv.waitKey(1) == ord('q'):
             break
 ```
@@ -29,7 +30,7 @@ with ThreadedVideoCapture(0) as tvc:  # Open webcam stream
 # Documentation
 `ThreadedVideoCapture` creates a background thread with a `VideoCapture` instance in it. This instance will 
 continuously read frames and place them on a FIFO queue. When you call `ThreadedVideoCapture.read()`, the oldest
-frame is returned from the queue. 
+frame is returned from the queue. If there are no frames in the queue, a `(False, None)` tuple is returned.
 
 An instantiated `ThreadedVideoCapture` will eventually stop yielding frames. This is normal, and occurs for example 
 when:
@@ -86,3 +87,25 @@ at any other time. By default, it is not limited.
 creates its own logger named 'ThreadedVideoCapture', but you can provide it with a custom logger object if you wish at 
 instantiation. The logger is directly exposed as `ThreadedVideoCapture.logger`.
 
+## Reusing a ThreadedVideoCapture instance
+You can open a new video source without having to close your original `ThreadedVideoCapture` instance and creating a 
+new one. Simply call `ThreadedVideoCapture.open()` with your new source parameters. This will release the `VideoCapture`
+ instance for your old source, `join` the background thread, and create a new `VideoCapture` in its own thread for the 
+new video source. Example:
+
+```
+# Example showing how to switch to a different webcam after
+# 1 second with the same ThreadedVideoCapture instance.
+from time import time
+with ThreadedVideoCapture(0) as tvc:  # Open webcam 0 stream
+    tick = time()
+    while True:
+        ret, frame = tvc.read()
+        if ret:  # ret is True if a frame was obtained with tvc.read()
+            cv.imshow('frame', frame) 
+        if cv.waitKey(1) == ord('q'):
+            break
+        # After one second of opening the stream from webcam 0, we switch seamlessly to webcam 1.
+        if time - tick() > 1:
+            tvc.open(1)
+```
