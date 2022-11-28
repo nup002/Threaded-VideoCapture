@@ -2,16 +2,19 @@
 """
 @author: magne.lauritzen
 """
+from src.threaded_videocapture import ThreadedVideoCapture
 import io
-import numpy as np
-import time
-from time import perf_counter
-import unittest
 import logging
+import time
+import unittest
+from time import perf_counter
+
+import numpy as np
+
 logging.basicConfig(level=logging.DEBUG)
-from src.threaded_videocapture import ThreadedVideoCapture, module_logger
 
 logger = logging.getLogger("tests")
+
 
 class TestThreadedVideoCapture(unittest.TestCase):
     def assert_normal_behavior(self, tvc: ThreadedVideoCapture):
@@ -115,6 +118,7 @@ class TestThreadedVideoCapture(unittest.TestCase):
             self.assert_normal_behavior(tvc)
             assert tvc.open("testimage_1.jpg")
             self.assert_normal_behavior(tvc)
+
 
 if __name__ == '__main__':
     unittest.main()

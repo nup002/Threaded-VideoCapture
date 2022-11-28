@@ -3,19 +3,21 @@
 Author: Magne Lauritzen
 """
 
+import logging
+import queue
+import threading
+import time
+from collections import deque
+from enum import Enum, auto
+from math import inf
+from statistics import mean
+from typing import Any, Optional, Tuple, Union, Deque, Dict
+
 import cv2  # type: ignore[import]
 import numpy as np  # type: ignore[import]
-import threading
-import queue
-import time
-from typing import Any, Optional, Tuple, Union, Deque, Dict
-import logging
-from enum import Enum, auto
-from collections import deque
-from statistics import mean
-from math import inf
 
 module_logger = logging.getLogger("TVC")
+
 
 # noinspection PyArgumentList
 class InputVariables(Enum):
@@ -78,7 +80,7 @@ class VideoCaptureThread(threading.Thread):
                                     poll_rate = in_data[1]
                                     if poll_rate is None:
                                         poll_period = -inf
-                                        logger.info(f"Poll rate set to unlimited.")
+                                        logger.info("Poll rate set to unlimited.")
                                     elif in_data[1] <= 0:
                                         logger.warning(
                                             f"Attempted to set poll rate less or equal to 0: {in_data[1]}. Poll "
@@ -87,7 +89,7 @@ class VideoCaptureThread(threading.Thread):
                                         poll_period = 1 / in_data[1]
                                         logger.info(f"Poll rate set to {in_data[1]} Hz")
                                 if in_data[0] == InputVariables.QUIT:
-                                    logger.info(f"Received QUIT signal.")
+                                    logger.info("Received QUIT signal.")
                                     quitflag = True
                                     break
                             except queue.Empty:
@@ -173,7 +175,8 @@ class ThreadedVideoCapture:
         kwargs           : Keyword arguments to cv2.VideoCapture
         """
         self.logger = logger if logger is not None else module_logger
-        self.frame_queue: queue.Queue[Tuple[Optional[bool], Optional[np.ndarray]]] = queue.Queue(maxsize=frame_queue_size)
+        self.frame_queue: queue.Queue[Tuple[Optional[bool], Optional[np.ndarray]]] = queue.Queue(
+            maxsize=frame_queue_size)
         self._capture = cv2.VideoCapture()
         self._output_queue: queue.Queue[Dict[OutputVariables, Any]] = queue.Queue(maxsize=1)
         self._input_queue: queue.Queue[Tuple[InputVariables, Any]] = queue.Queue()
