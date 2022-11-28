@@ -15,6 +15,7 @@ from collections import deque
 from statistics import mean
 from math import inf
 
+module_logger = logging.getLogger("TVC")
 
 # noinspection PyArgumentList
 class InputVariables(Enum):
@@ -171,20 +172,20 @@ class ThreadedVideoCapture:
             accessed with ThreadedVideoCapture.logger.
         kwargs           : Keyword arguments to cv2.VideoCapture
         """
-        self.logger = logger if logger is not None else logging.getLogger("ThreadedVideoCapture")
+        self.logger = logger if logger is not None else module_logger
+        self.frame_queue: queue.Queue[Tuple[Optional[bool], Optional[np.ndarray]]] = queue.Queue(maxsize=frame_queue_size)
         self._capture = cv2.VideoCapture()
-        self._frame_queue: queue.Queue[Tuple[Optional[bool], Optional[np.ndarray]]] = queue.Queue(maxsize=frame_queue_size)
         self._output_queue: queue.Queue[Dict[OutputVariables, Any]] = queue.Queue(maxsize=1)
         self._input_queue: queue.Queue[Tuple[InputVariables, Any]] = queue.Queue()
         self._timeout = timeout
         self._poll_rate = poll_rate
         self._return_data: Dict[OutputVariables, Any] = {}
-        self.threaded_reader: Optional[threading.Thread] = None
+        self._threaded_reader: Optional[threading.Thread] = None
         self.open(*args, **kwargs)
 
     @property
     def is_alive(self):
-        return self.threaded_reader.is_alive()
+        return self._threaded_reader.is_alive()
 
     def read(self) -> Tuple[Optional[bool], Optional[np.ndarray]]:
         """
@@ -197,7 +198,7 @@ class ThreadedVideoCapture:
         frame   : np.ndarray or None.
         """
         try:
-            return self._frame_queue.get(block=False)
+            return self.frame_queue.get(block=False)
         except queue.Empty:
             return False, None
 
@@ -217,14 +218,17 @@ class ThreadedVideoCapture:
         self.release()
         success: bool = self._capture.open(*args, **kwargs)
         if success:
-            self.threaded_reader = VideoCaptureThread(args=(self._capture,
-                                                            self._frame_queue,
-                                                            self._output_queue,
-                                                            self._input_queue,
-                                                            self._timeout,
-                                                            self._poll_rate,
-                                                            self.logger), daemon=True)
-            self.threaded_reader.start()
+            self.logger.info(f"Sucessfully opened VideoCapture with args={args}, kwargs={kwargs}")
+            self._threaded_reader = VideoCaptureThread(args=(self._capture,
+                                                             self.frame_queue,
+                                                             self._output_queue,
+                                                             self._input_queue,
+                                                             self._timeout,
+                                                             self._poll_rate,
+                                                             self.logger), daemon=True)
+            self._threaded_reader.start()
+        else:
+            self.logger.info(f"Failed at opening VideoCapture with args={args}, kwargs={kwargs}")
         return success
 
     def set(self, propId: int, value: int) -> bool:
@@ -251,11 +255,18 @@ class ThreadedVideoCapture:
         """
         Stops the reader thread and releases the VideoCapture.
         """
-        if self.threaded_reader:
+        if self._threaded_reader is not None and self._threaded_reader.is_alive():
             self._input_queue.put((InputVariables.QUIT, None))
             logging.info("Waiting for threaded reader to quit.")
-            self.threaded_reader.join()
+            self._threaded_reader.join()
         self._capture.release()
+        # Clear the queues
+        with self.frame_queue.mutex:
+            self.frame_queue.queue.clear()
+        with self._output_queue.mutex:
+            self._output_queue.queue.clear()
+        with self._output_queue.mutex:
+            self._output_queue.queue.clear()
 
     @property
     def actual_poll_rate(self) -> Optional[float]:
@@ -321,34 +332,3 @@ class ThreadedVideoCapture:
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
         self.release()
-
-def main():
-    import os
-    phone_ips = {'work': "10.0.49.50",
-                 'home': "192.168.1.21"}
-    phone_ip = phone_ips['work']
-    capture_port = 8080
-
-    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'
-    #with ThreadedVideoCapture(rf"http://{phone_ip}:{capture_port}/video", cv2.CAP_FFMPEG) as tvc:
-    with ThreadedVideoCapture("../tests/testimage_1.jpg") as tvc:
-        if not tvc.isOpened():
-            print(f'Cannot open RTSP stream.')
-            exit(-1)
-
-        counter = 0
-        while True:
-            ret, frame = tvc.read()
-            if ret:
-                cv2.imshow("Frame", frame)
-            if ret is None:
-                break
-            if cv2.waitKey(1) == ord("q"):
-                break
-            if cv2.waitKey(1) == ord("f"):
-                tvc.poll_rate = (tvc.poll_rate + 10) % 50 + 5
-            counter += 1
-
-
-if __name__ == "__main__":
-    main()
