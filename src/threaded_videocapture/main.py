@@ -44,24 +44,51 @@ class VideoCaptureThread(threading.Thread):
                  *, daemon: bool = None):
 
         super().__init__(target=self.reader, name=name, args=args, kwargs=kwargs, daemon=daemon)
+        self.poll_period = 0.
+        self.timeout = 0.
+        self.logger = None
+
+    def _set_timeout(self, new_timeout: float):
+        self.timeout = new_timeout
+        infostr = f"Timeout set to {self.timeout} seconds."
+        if self.timeout <= 0:
+            self.timeout = inf
+            infostr += " VideoCaptureThread will never timeout and must be stopped with " \
+                       "a QUIT signal."
+        self.logger.info(infostr)
+
+    def _set_pollrate(self, poll_rate: float):
+        poll_rate = in_data[1]
+        if poll_rate is None:
+            self.poll_period = -inf
+            logger.info("Poll rate set to unlimited.")
+        elif in_data[1] <= 0:
+            logger.warning(
+                f"Attempted to set poll rate less or equal to 0: {in_data[1]}. Poll "
+                f"rate remains unchanged at {1 / self.poll_period}")
+        else:
+            self.poll_period = 1 / in_data[1]
+            logger.info(f"Poll rate set to {in_data[1]} Hz")
 
     def reader(self, capture: cv2.VideoCapture, frame_queue: queue.Queue, out_queue: queue.Queue,
                in_queue: queue.Queue, timeout: float, poll_rate: Optional[float], logger: logging.Logger) -> None:
+        self.logger = logger
         try:
             poll_period_deque: Deque[float] = deque()
             frame_period_deque: Deque[float] = deque()
             if capture.isOpened():
                 quitflag = False
-                poll_period: Optional[float] = 1 / poll_rate if poll_rate else 0
+                self.poll_period: Optional[float] = 1 / poll_rate if poll_rate else 0
+                self._set_timeout(timeout)
                 time_since_frame = 0.
                 last_emit_timestamp = 0.
                 last_settings_poll_timestamp = 0.
                 prev_frame_timestamp = time.time()
                 prev_read_timestamp = time.perf_counter()
-                while time_since_frame < timeout and not quitflag:
+                while time_since_frame < self.timeout and not quitflag:
                     # Get time since last call and sleep if needed to reach poll_rate
                     time_since_last_read = time.perf_counter() - prev_read_timestamp
-                    sleep_until = time.perf_counter() + max(0., poll_period - time_since_last_read)
+                    sleep_until = time.perf_counter() + max(0., self.poll_period - time_since_last_read)
                     # Poll new settings at 10hz while sleeping
                     while True:
                         now = time.perf_counter()
@@ -69,24 +96,18 @@ class VideoCaptureThread(threading.Thread):
                             try:
                                 in_data: Tuple[InputVariables, Any] = in_queue.get(block=False)
                                 if in_data[0] == InputVariables.TIMEOUT:
-                                    timeout = in_data[1]
-                                    infostr = f"Timeout set to {timeout} seconds."
-                                    if timeout <= 0:
-                                        timeout = inf
-                                        infostr += " VideoCaptureThread will never timeout and must be stopped with " \
-                                                   "a QUIT signal."
-                                    logger.info(infostr)
+                                    self._set_timeout(in_data[1])
                                 elif in_data[0] == InputVariables.POLLRATE:
                                     poll_rate = in_data[1]
                                     if poll_rate is None:
-                                        poll_period = -inf
+                                        self.poll_period = -inf
                                         logger.info("Poll rate set to unlimited.")
                                     elif in_data[1] <= 0:
                                         logger.warning(
                                             f"Attempted to set poll rate less or equal to 0: {in_data[1]}. Poll "
-                                            f"rate remains unchanged at {1 / poll_period}")
+                                            f"rate remains unchanged at {1 / self.poll_period}")
                                     else:
-                                        poll_period = 1 / in_data[1]
+                                        self.poll_period = 1 / in_data[1]
                                         logger.info(f"Poll rate set to {in_data[1]} Hz")
                                 if in_data[0] == InputVariables.QUIT:
                                     logger.info("Received QUIT signal.")
@@ -126,8 +147,8 @@ class VideoCaptureThread(threading.Thread):
                         queue_put(out_queue, {OutputVariables.POLLRATE: mean_poll_rate,
                                               OutputVariables.FPS: mean_fps})
                         last_emit_timestamp = prev_read_timestamp
-                if time_since_frame >= timeout:
-                    logger.info(f"VideoCaptureThread timed out after {timeout} seconds of no frames.")
+                if time_since_frame >= self.timeout:
+                    logger.info(f"VideoCaptureThread timed out after {self.timeout} seconds of no frames.")
         finally:
             queue_put(frame_queue, (None, None))
 
