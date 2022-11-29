@@ -387,6 +387,7 @@ class ThreadedVideoCapture:
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
         self.release()
 
+
 if __name__ == "__main__":
     """ Example code that opens up a webcam stream. """
     with ThreadedVideoCapture(0) as tvc:  # Open webcam stream
