@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest
-          if (Test-Path .\requirements.txt -PathType Leaf) {pip install -r requirements.txt}
+          if (Test-Path .\requirements.txt -PathType Leaf) then pip install -r requirements.txt fi
       - name: Test with pytest
         run: |
           pytest
