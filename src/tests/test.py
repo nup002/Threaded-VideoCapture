@@ -8,6 +8,7 @@ import logging
 import time
 import unittest
 from time import perf_counter
+from math import inf
 
 import numpy as np
 
@@ -46,23 +47,31 @@ class TestThreadedVideoCapture(unittest.TestCase):
     def test_timeout(self):
         """ Test that ThreadedVideoCapture will use the timeout values we set it to. """
         with ThreadedVideoCapture("testimage_1.jpg", timeout=1) as tvc:
-            assert tvc.timeout == 1
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to initialize
+            tvc_timeout = tvc.timeout
+            assert tvc_timeout == 1, f"{tvc_timeout}"
             time.sleep(0.8)
             assert tvc.is_alive
             tvc.timeout = 2
-            assert tvc.timeout == 2
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
+            tvc_timeout = tvc.timeout
+            assert tvc_timeout == 2, f"{tvc_timeout}"
             time.sleep(0.5)
             assert tvc.is_alive
             tvc.timeout = 0
-            assert tvc.timeout == 0
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
+            tvc_timeout = tvc.timeout
+            assert tvc_timeout == inf, f"{tvc_timeout}"
             time.sleep(0.5)
             assert tvc.is_alive
             tvc.timeout = -1
-            assert tvc.timeout == -1
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
+            tvc_timeout = tvc.timeout
+            assert tvc_timeout == inf, f"{tvc_timeout}"
             time.sleep(0.5)
             assert tvc.is_alive
             tvc.timeout = 0.1
-            time.sleep(0.2)
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
             assert not tvc.is_alive
 
     def test_pollrate(self):
@@ -72,6 +81,7 @@ class TestThreadedVideoCapture(unittest.TestCase):
             time.sleep(1.1)
             assert 9 < tvc.actual_poll_rate < 11
             tvc.poll_rate = 100
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
             assert tvc.poll_rate == 100
             time.sleep(2.1)
             assert 95 < tvc.actual_poll_rate < 105
@@ -83,19 +93,17 @@ class TestThreadedVideoCapture(unittest.TestCase):
         handler = logging.StreamHandler(log_capture_string)
         handler.setLevel(logging.DEBUG)
         with ThreadedVideoCapture("testimage_1.jpg") as tvc:
-            tvc.logger.setLevel(logging.DEBUG)
             tvc.logger.addHandler(handler)
-        assert log_capture_string.getvalue() == "Received QUIT signal.\n", f"Contents is " \
-                                                                           f"\"{repr(log_capture_string.getvalue())}\"."
+        assert log_capture_string.getvalue() != ""
+
         tvc.logger.removeHandler(handler)
         log_capture_string.truncate(0)
         log_capture_string.seek(0)
         testlogger = logging.getLogger("testlogger")
         with ThreadedVideoCapture("testimage_1.jpg", logger=testlogger) as tvc:
-            tvc.logger.setLevel(logging.DEBUG)
             tvc.logger.addHandler(handler)
-        assert log_capture_string.getvalue() == "Received QUIT signal.\n", f"Contents is " \
-                                                                           f"\"{repr(log_capture_string.getvalue())}\"."
+        assert log_capture_string.getvalue() != ""
+
         log_capture_string.close()
 
     def test_isalive(self):
