@@ -1,3 +1,9 @@
+![LICENCE](https://img.shields.io/github/license/nup002/Threaded-VideoCapture)
+[![Flake8](https://github.com/nup002/Threaded-VideoCapture/actions/workflows/flake8.yml/badge.svg)](https://github.com/nup002/Threaded-VideoCapture/actions/workflows/flake8.yml)
+[![PyTest](https://github.com/nup002/Threaded-VideoCapture/actions/workflows/PyTest.yml/badge.svg)](https://github.com/nup002/Threaded-VideoCapture/actions/workflows/PyTest.yml)
+![Version](https://img.shields.io/pypi/v/Threaded-VideoCapture)
+![Python](https://img.shields.io/pypi/pyversions/Threaded-VideoCapture)
+
 # Threaded-VideoCapture
 A direct drop-in replacement for OpenCV's `VideoCapture` that runs in a background thread, allowing the main thread to 
 do useful work instead of waiting on frames. 
