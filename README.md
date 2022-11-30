@@ -2,7 +2,13 @@
 A direct drop-in replacement for OpenCV's `VideoCapture` that runs in a background thread, allowing the main thread to 
 do useful work instead of waiting on frames. 
 
-`ThreadedVideoCapture` is a new library. Bugs may exist, and useful features may be missing. Bug reports, 
+This library is useful if your code spend a lot of time waiting for new frames, or if you are processing a stream in 
+realtime and cannot process frames fast enough to keep up with the stream.
+
+`ThreadedVideoCapture` requires `opencv-python` 4.0.0.21 or greater. It has been tested on Python 3.6, 3.7, 3.8. 3.9, 
+3.10, and 3.11. 
+
+It is a young library. Therefore bugs may exist, and useful features may be missing. Bug reports, 
 feature requests, and pull requests are therefore highly appreciated!
 
 
@@ -13,17 +19,18 @@ download this repository directly.
 ## Simple example
 `ThreadedVideoCapture` can be used exactly like the normal `VideoCapture`:
 ```
+import cv2
 from threadedvideocapture import ThreadedVideoCapture
 
 with ThreadedVideoCapture(0) as tvc:  # Open webcam stream
     while True:
         ret, frame = tvc.read()
         if ret:  # ret is True if a frame was obtained with tvc.read()
-            cv.imshow('frame', frame) 
+            cv2.imshow('frame', frame) 
         if ret is None:  # ret is None if tvc has stopped.
             print("End of stream.")
             break
-        if cv.waitKey(1) == ord('q'):
+        if cv2.waitKey(1) == ord('q'):
             break
 ```
 
@@ -58,7 +65,7 @@ If `ThreadedVideoCapture` does not receive a new frame within a specified time, 
 useful for 
 example when you are capturing a stream and you do not know when it will end. You can set the timeout value both when
 instantiating, and at any other time. By default, the timeout is set to 1 second. The following example shows how to 
-start a `ThreadedVideoCapture` that will wait until infinity for a single frame, then change its timeout and quit if 
+start a `ThreadedVideoCapture` that will wait indefinitely for a single frame, then change its timeout and quit if 
 no frames are received within the timeout value.
 ```
 with ThreadedVideoCapture(0, timeout=0) as tvc:  # Open webcam stream with timeout disabled.
@@ -71,9 +78,9 @@ with ThreadedVideoCapture(0, timeout=0) as tvc:  # Open webcam stream with timeo
     tvc.timeout = 2.5 # Set timeout to 2.5 seconds
     # Poll for frames for 2.5 seconds before ThreadedVideoCapture times out
     while True:
-        ret, frame = cap.read() 
+        ret, frame = tvc.read() 
         if ret is None:  # ret is only None if tvc has stopped.
-            print("The ThreadedVideoCapture has timed out.")
+            print("ThreadedVideoCapture has timed out.")
             break
     
 ```
@@ -84,8 +91,8 @@ at any other time. By default, it is not limited.
 
 ### Logger
 `ThreadedVideoCapture` uses Pythons excellent `logging` library to log events. By default `ThreadedVideoCapture` 
-creates its own logger named 'ThreadedVideoCapture', but you can provide it with a custom logger object if you wish at 
-instantiation. The logger is directly exposed as `ThreadedVideoCapture.logger`.
+uses its own logger named 'TVC', but you can provide it with a custom logger object at instantiation. The logger is 
+found at `ThreadedVideoCapture.logger`.
 
 ## Reusing a ThreadedVideoCapture instance
 You can open a new video source without having to close your original `ThreadedVideoCapture` instance and creating a 
@@ -94,18 +101,21 @@ new one. Simply call `ThreadedVideoCapture.open()` with your new source paramete
 new video source. Example:
 
 ```
-# Example showing how to switch to a different webcam after
-# 1 second with the same ThreadedVideoCapture instance.
+# Example showing how to switch to a different webcam after 1 second with the same ThreadedVideoCapture instance.
 from time import time
 with ThreadedVideoCapture(0) as tvc:  # Open webcam 0 stream
     tick = time()
     while True:
         ret, frame = tvc.read()
         if ret:  # ret is True if a frame was obtained with tvc.read()
-            cv.imshow('frame', frame) 
-        if cv.waitKey(1) == ord('q'):
+            cv2.imshow('frame', frame) 
+        if cv2.waitKey(1) == ord('q'):
             break
         # After one second of opening the stream from webcam 0, we switch seamlessly to webcam 1.
-        if time - tick() > 1:
+        if time() - tick > 1:
             tvc.open(1)
 ```
+
+## Statistics
+The current frames per second (FPS) and actual polling rate can be obtained with `ThreadedVideoCapture.fps` and 
+`ThreadedVideoCapture.actual_poll_rate`. These values are updated once per second.
