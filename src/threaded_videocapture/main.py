@@ -53,11 +53,17 @@ class VideoCaptureThread(threading.Thread):
         self.poll_period_deque: Deque[float] = deque()
         self.frame_period_deque: Deque[float] = deque()
         self.quitflag = False
+        self._is_ready = False
         self.logger: logging.Logger
         self.capture: cv2.VideoCapture
         self.frame_queue: queue.Queue
         self.out_queue: queue.Queue
         self.in_queue: queue.Queue
+
+    @property
+    def is_ready(self):
+        """ is_ready will be True when the VideoCaptureThread has started and its values are initialized. """
+        return self._is_ready
 
     @property
     def time_since_prev_frame(self) -> float:
@@ -151,6 +157,7 @@ class VideoCaptureThread(threading.Thread):
                 self._set_pollrate(poll_rate)
                 self._set_timeout(timeout)
                 self.prev_frame_timestamp = time.perf_counter()
+                self._is_ready = True
                 while self.time_since_prev_frame < self.timeout and not self.quitflag:
                     # Poll for new settings or a QUIT flag
                     self._poll_for_settings()
@@ -164,6 +171,8 @@ class VideoCaptureThread(threading.Thread):
                 if self.time_since_prev_frame >= self.timeout:
                     logger.info("VideoCaptureThread timed out. Seconds since last frame: "
                                 f"{self.time_since_prev_frame:.1f} Timeout setting: {self.timeout:.1f}s.")
+            else:
+                self._is_ready = True
         finally:
             queue_put(frame_queue, (None, None))
 
@@ -380,6 +389,9 @@ class ThreadedVideoCapture:
                                                          self._poll_rate,
                                                          self.logger), daemon=True)
         self._threaded_reader.start()
+        while not self._threaded_reader.is_ready:
+            time.sleep(0.01)
+
 
     def __enter__(self) -> 'ThreadedVideoCapture':
         return self
