@@ -90,11 +90,13 @@ class TestThreadedVideoCapture(unittest.TestCase):
         ThreadedVideoCapture."""
         with self.assertLogs('TVC', level='DEBUG') as lc:
             with ThreadedVideoCapture("testimage_1.jpg"):
+                time.sleep(0.1)  # Permit time for logger to do its thing
                 self.assertEqual(lc.output[-1], 'INFO:TVC:Timeout set to 1 seconds.')
 
         testlogger = logging.getLogger("testlogger")
         with self.assertLogs('testlogger', level='DEBUG') as lc:
             with ThreadedVideoCapture("testimage_1.jpg", logger=testlogger):
+                time.sleep(0.1)  # Permit time for logger to do its thing
                 self.assertEqual(lc.output[-1], 'INFO:testlogger:Timeout set to 1 seconds.')
 
     def test_isalive(self):
