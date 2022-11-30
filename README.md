@@ -18,9 +18,10 @@ It is a young library. Therefore bugs may exist, and useful features may be miss
 feature requests, and pull requests are therefore highly appreciated!
 
 
-## How to install
-PyPi package is currently being worked on and should be ready before December 2022. For now, you can
-download this repository directly.
+## Installation
+`Threaded-VideoCapture` is available from PyPi. Run the following in a command line terminal:
+
+`pip install threaded-videocapture`
 
 ## Simple example
 `Threaded-VideoCapture` can be used exactly like the normal `VideoCapture`:
