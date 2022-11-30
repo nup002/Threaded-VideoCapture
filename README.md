@@ -1,11 +1,11 @@
-# ThreadedVideoCapture
+# Threaded-VideoCapture
 A direct drop-in replacement for OpenCV's `VideoCapture` that runs in a background thread, allowing the main thread to 
 do useful work instead of waiting on frames. 
 
 This library is useful if your code spend a lot of time waiting for new frames, or if you are processing a stream in 
 realtime and cannot process frames fast enough to keep up with the stream.
 
-`ThreadedVideoCapture` requires `opencv-python` 4.0.0.21 or greater. It has been tested on Python 3.6, 3.7, 3.8. 3.9, 
+`Threaded-VideoCapture` requires `opencv-python` 4.0.0.21 or greater. It has been tested on Python 3.6, 3.7, 3.8. 3.9, 
 3.10, and 3.11. 
 
 It is a young library. Therefore bugs may exist, and useful features may be missing. Bug reports, 
@@ -17,10 +17,10 @@ PyPi package is currently being worked on and should be ready before December 20
 download this repository directly.
 
 ## Simple example
-`ThreadedVideoCapture` can be used exactly like the normal `VideoCapture`:
+`Threaded-VideoCapture` can be used exactly like the normal `VideoCapture`:
 ```
 import cv2
-from threadedvideocapture import ThreadedVideoCapture
+from threaded_videocapture import ThreadedVideoCapture
 
 with ThreadedVideoCapture(0) as tvc:  # Open webcam stream
     while True:
@@ -90,9 +90,9 @@ You can limit how often the `VideoCapture` instance calls `grab()` by specifying
 at any other time. By default, it is not limited. 
 
 ### Logger
-`ThreadedVideoCapture` uses Pythons excellent `logging` library to log events. By default `ThreadedVideoCapture` 
-uses its own logger named 'TVC', but you can provide it with a custom logger object at instantiation. The logger is 
-found at `ThreadedVideoCapture.logger`.
+The `Threaded-VideoCapture` library uses Pythons excellent `logging` library to log events. By default 
+`ThreadedVideoCapture` uses its own logger named 'TVC', but you can provide it with a custom logger object at 
+instantiation. The logger is found at `ThreadedVideoCapture.logger`.
 
 ## Reusing a ThreadedVideoCapture instance
 You can open a new video source without having to close your original `ThreadedVideoCapture` instance and creating a 
@@ -102,6 +102,7 @@ new video source. Example:
 
 ```
 # Example showing how to switch to a different webcam after 1 second with the same ThreadedVideoCapture instance.
+
 from time import time
 with ThreadedVideoCapture(0) as tvc:  # Open webcam 0 stream
     tick = time()
