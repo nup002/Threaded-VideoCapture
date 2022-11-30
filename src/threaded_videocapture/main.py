@@ -392,7 +392,6 @@ class ThreadedVideoCapture:
         while not self._threaded_reader.is_ready:
             time.sleep(0.01)
 
-
     def __enter__(self) -> 'ThreadedVideoCapture':
         return self
 
