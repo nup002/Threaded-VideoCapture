@@ -356,7 +356,7 @@ class ThreadedVideoCapture:
         ----------
         timeout : Timeout value in seconds. Optional.
         """
-        if timeout <= 0:
+        if timeout is not None and timeout <= 0:
             # Instead of throwing an error, we silently convert timeout to None in order to maintain backwards
             # compatibility with version 1.0.0.
             timeout = None
@@ -368,7 +368,7 @@ class ThreadedVideoCapture:
         """ Returns the reader thread poll rate. If no reader thread exists, returns the poll rate value that will be
          applied to the next reader thread that is created. """
         if self._threaded_reader is not None:
-            if self._threaded_reader.poll_period != 0:
+            if self._threaded_reader.poll_period != -inf:
                 return 1/self._threaded_reader.poll_period
             else:
                 return None

@@ -75,6 +75,9 @@ class TestThreadedVideoCapture(unittest.TestCase):
             self.assertEqual(tvc.poll_rate, 100)
             time.sleep(2.1)
             self.assertTrue(95 < tvc.actual_poll_rate < 105, f"actual_poll_rate = {tvc.actual_poll_rate}")
+            tvc.poll_rate = None
+            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
+            self.assertEqual(tvc.poll_rate, None)
 
     def test_logging(self):
         """ Test that logging works correctly with or without providing a Logger object when instantiating
