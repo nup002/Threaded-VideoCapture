@@ -12,7 +12,7 @@ This library is useful if your code spend a lot of time waiting for new frames, 
 realtime and cannot process frames fast enough to keep up with the stream.
 
 `Threaded-VideoCapture` requires `opencv-python` 4.0.0.21 or greater. It has been tested on Python 3.6, 3.7, 3.8. 3.9, 
-3.10, and 3.11. 
+3.10, and 3.11, and is thoroughly typed.
 
 It is a young library. Therefore bugs may exist, and useful features may be missing. Bug reports, 
 feature requests, and pull requests are therefore highly appreciated!
@@ -69,13 +69,12 @@ only the most recent frame is available.
 
 ### Timeout
 If `ThreadedVideoCapture` does not receive a new frame within a specified time, it will time out and quit. This is 
-useful for 
-example when you are capturing a stream and you do not know when it will end. You can set the timeout value both when
-instantiating, and at any other time. By default, the timeout is set to 1 second. The following example shows how to 
+useful for example when you are capturing a stream and you do not know when it will end. The timeout value can be 
+changed at any time. By default, the timeout is set to 1 second. The following example shows how to 
 start a `ThreadedVideoCapture` that will wait indefinitely for a single frame, then change its timeout and quit if 
 no frames are received within the timeout value.
 ```
-with ThreadedVideoCapture(0, timeout=0) as tvc:  # Open webcam stream with timeout disabled.
+with ThreadedVideoCapture(0, timeout=None) as tvc:  # Open webcam stream with timeout disabled.
     # Poll for a single frame for eternity due to no timeout
     while True:
         ret, frame = cap.read() 
@@ -111,7 +110,7 @@ new video source. Example:
 # Example showing how to switch to a different webcam after 1 second with the same ThreadedVideoCapture instance.
 
 from time import time
-with ThreadedVideoCapture(0) as tvc:  # Open webcam 0 stream
+with ThreadedVideoCapture(0) as tvc:  # Open webcam 0 stream with default settings
     tick = time()
     while True:
         ret, frame = tvc.read()

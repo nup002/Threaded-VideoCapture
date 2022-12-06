@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threaded-videocapture"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
   { name="Magne Eik Lauritzen", email="mag.lauritzen@gmail.com" },
 ]

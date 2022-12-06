@@ -47,26 +47,17 @@ class TestThreadedVideoCapture(unittest.TestCase):
         """ Test that ThreadedVideoCapture will use the timeout values we set it to. """
         with ThreadedVideoCapture("testimage_1.jpg", timeout=1) as tvc:
             time.sleep(0.1)  # Permit time for VideoCaptureThread to initialize
-            tvc_timeout = tvc.timeout
-            self.assertEqual(tvc_timeout, 1)
+            self.assertEqual(tvc.timeout, 1)
             time.sleep(0.8)
             self.assertTrue(tvc.is_alive)
             tvc.timeout = 2
             time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
-            tvc_timeout = tvc.timeout
-            self.assertEqual(tvc_timeout, 2)
+            self.assertEqual(tvc.timeout, 2)
             time.sleep(0.5)
             self.assertTrue(tvc.is_alive)
-            tvc.timeout = 0
+            tvc.timeout = None
             time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
-            tvc_timeout = tvc.timeout
-            self.assertEqual(tvc_timeout, inf)
-            time.sleep(0.5)
-            self.assertTrue(tvc.is_alive)
-            tvc.timeout = -1
-            time.sleep(0.1)  # Permit time for VideoCaptureThread to receive the new setting
-            tvc_timeout = tvc.timeout
-            self.assertEqual(tvc_timeout, inf)
+            self.assertEqual(tvc.timeout, inf)
             time.sleep(0.5)
             self.assertTrue(tvc.is_alive)
             tvc.timeout = 0.1

@@ -41,7 +41,7 @@ def queue_put(q: Union[queue.Queue, queue.LifoQueue], data: Any) -> None:
 
 class VideoCaptureThread(threading.Thread):
     def __init__(self, name: str = None, args: Tuple = (), kwargs: Dict[str, Any] = None,
-                 *, daemon: bool = None):
+                 *, daemon: bool = None) -> None:
 
         super().__init__(target=self.reader, name=name, args=args, kwargs=kwargs, daemon=daemon)
         self.poll_period = 0.
@@ -61,7 +61,7 @@ class VideoCaptureThread(threading.Thread):
         self.in_queue: queue.Queue
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """ is_ready will be True when the VideoCaptureThread has started and its values are initialized. """
         return self._is_ready
 
@@ -69,29 +69,32 @@ class VideoCaptureThread(threading.Thread):
     def time_since_prev_frame(self) -> float:
         return time.perf_counter() - self.prev_frame_timestamp
 
-    def _set_timeout(self, new_timeout: float):
-        self.timeout = new_timeout
-        infostr = f"Timeout set to {self.timeout} seconds."
-        if self.timeout <= 0:
+    def _set_timeout(self, new_timeout: Optional[float]) -> None:
+        if new_timeout is None:
             self.timeout = inf
-            infostr += " VideoCaptureThread will never timeout and must be stopped with " \
-                       "a QUIT signal."
+        elif new_timeout <= 0:
+            self.logger.warning(f"Attempted to set timeout less or equal to 0: {new_timeout} seconds. Timeout remains "
+                                f"unchanged at {self.timeout:.1f} seconds.")
+            return
+        else:
+            self.timeout = new_timeout
+        infostr = f"Timeout set to {self.timeout} seconds."
+        if self.timeout == inf:
+            infostr += " VideoCaptureThread will never time out and must be stopped with a QUIT signal."
         self.logger.info(infostr)
 
-    def _set_pollrate(self, poll_rate: float):
-        poll_rate = poll_rate
+    def _set_pollrate(self, poll_rate: Optional[float]) -> None:
         if poll_rate is None:
             self.poll_period = -inf
             self.logger.info("Poll rate set to unlimited.")
         elif poll_rate <= 0:
-            self.logger.warning(
-                f"Attempted to set poll rate less or equal to 0: {poll_rate}. Poll "
-                f"rate remains unchanged at {1 / self.poll_period} Hz")
+            self.logger.warning(f"Attempted to set poll rate less or equal to 0: {poll_rate} Hz. Poll rate remains "
+                                f"unchanged at {1 / self.poll_period} Hz")
         else:
             self.poll_period = 1 / poll_rate
             self.logger.info(f"Poll rate set to {poll_rate} Hz")
 
-    def _read_frame(self):
+    def _read_frame(self) -> None:
         this_poll_timestamp = time.perf_counter()
         if self.prev_poll_timestamp != 0:
             self.poll_period_deque.append(this_poll_timestamp - self.prev_poll_timestamp)
@@ -105,22 +108,22 @@ class VideoCaptureThread(threading.Thread):
             queue_put(self.frame_queue, (ret, frame))
             self.prev_frame_timestamp = this_frame_timestamp
 
-    def _emit_statistics(self):
+    def _emit_statistics(self) -> None:
         if self.prev_poll_timestamp - self.prev_emit_timestamp > 1:
             if len(self.poll_period_deque) > 0:
-                mean_poll_rate = 1 / mean(self.poll_period_deque)
+                mean_poll_rate: Optional[float] = 1 / mean(self.poll_period_deque)
             else:
                 mean_poll_rate = None
             self.poll_period_deque.clear()
             if len(self.frame_period_deque) > 0:
-                mean_fps = 1 / mean(self.frame_period_deque)
+                mean_fps: Optional[float] = 1 / mean(self.frame_period_deque)
             else:
                 mean_fps = None
             self.frame_period_deque.clear()
             queue_put(self.out_queue, {OutputVariables.POLLRATE: mean_poll_rate, OutputVariables.FPS: mean_fps})
             self.prev_emit_timestamp = time.perf_counter()
 
-    def _poll_for_settings(self):
+    def _poll_for_settings(self) -> None:
         # Get time since last poll and sleep if needed to reach poll_rate
         time_since_prev_poll = time.perf_counter() - self.prev_poll_timestamp
         sleep_until = time.perf_counter() + max(0., self.poll_period - time_since_prev_poll)
@@ -201,18 +204,18 @@ class ThreadedVideoCapture:
     ensure to call release() when you are done with it.
     """
 
-    def __init__(self, *args: Any, timeout: float = 1, poll_rate: Optional[float] = None, frame_queue_size: int = 1,
-                 logger: logging.Logger = None, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, timeout: Optional[float] = 1, poll_rate: Optional[float] = None,
+                 frame_queue_size: int = 1, logger: logging.Logger = None, **kwargs: Any) -> None:
         """
 
         Parameters
         ----------
         args             : Positional arguments to cv2.VideoCapture
         timeout          : Threaded reader timeout. If no new frames are received within 'timeout' seconds, the thread
-            quits. Default is 1 second. Set it to 0 or a negative number to never time out.
-        poll_rate        : Threaded reader polling rate. The fastest rate (in calls per second) to capture.grab(). Set
-            this at least as high as your expected frame rate, preferably twice as large for headroom. Default None,
-            which means unlimited poll rate.
+            quits. Default is 1 second. Set it to None to never time out.
+        poll_rate        : Background thread reader polling rate. The fastest rate (in calls per second) to
+            capture.grab(). Set this at least as high as your expected frame rate, preferably twice as large for
+            headroom. Default None, which means unlimited poll rate.
         frame_queue_size : The length of the queue that holds frames fetched by the threaded reader. If the threaded
             reader has grabbed a new frame and the queue is full, the oldest element is removed to make room. Default 1.
         logger           : Custom logger. If not provided, ThreadedVideoCapture will create its own logger which can be
@@ -335,7 +338,7 @@ class ThreadedVideoCapture:
             return self._return_data.get(OutputVariables.FPS, None)
 
     @property
-    def timeout(self) -> float:
+    def timeout(self) -> Optional[float]:
         """ Return the reader thread timeout value. If no reader thread exists, returns the timeout value that will be
          applied to the next reader thread that is created. """
         if self._threaded_reader is not None:
@@ -353,15 +356,22 @@ class ThreadedVideoCapture:
         ----------
         timeout : Timeout value in seconds. Optional.
         """
+        if timeout <= 0:
+            # Instead of throwing an error, we silently convert timeout to None in order to maintain backwards
+            # compatibility with version 1.0.0.
+            timeout = None
         self._input_queue.put((InputVariables.TIMEOUT, timeout))
         self._timeout = timeout
 
     @property
-    def poll_rate(self) -> float:
+    def poll_rate(self) -> Optional[float]:
         """ Returns the reader thread poll rate. If no reader thread exists, returns the poll rate value that will be
          applied to the next reader thread that is created. """
         if self._threaded_reader is not None:
-            return 1/self._threaded_reader.poll_period
+            if self._threaded_reader.poll_period != 0:
+                return 1/self._threaded_reader.poll_period
+            else:
+                return None
         else:
             return self._poll_rate
 
@@ -380,7 +390,7 @@ class ThreadedVideoCapture:
         self._input_queue.put((InputVariables.POLLRATE, poll_rate))
         self._poll_rate = poll_rate
 
-    def _create_thread(self):
+    def _create_thread(self) -> None:
         self._threaded_reader = VideoCaptureThread(args=(self._capture,
                                                          self.frame_queue,
                                                          self._output_queue,
@@ -395,7 +405,7 @@ class ThreadedVideoCapture:
     def __enter__(self) -> 'ThreadedVideoCapture':
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
+    def __exit__(self, *_: Any) -> None:
         self.release()
 
 
